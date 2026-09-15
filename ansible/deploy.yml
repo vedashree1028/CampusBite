@@ -1,0 +1,89 @@
+---
+- name: Deploy CampusBite Application
+  hosts: web
+  become: yes
+
+  vars_prompt:
+    - name: mongodb_uri
+      prompt: "Enter your MongoDB Atlas connection URI"
+      private: yes
+
+  tasks:
+
+    - name: Update package list
+      apt:
+        update_cache: yes
+
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
+
+    - name: Start Docker service
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Create CampusBite application directory
+      file:
+        path: /home/ubuntu/campusbite/app
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: "0755"
+
+    - name: Create application environment file
+      copy:
+        content: |
+          MONGODB_URI={{ mongodb_uri }}
+          PORT=3000
+        dest: /home/ubuntu/campusbite/app/.env
+        owner: ubuntu
+        group: ubuntu
+        mode: "0600"
+      no_log: true
+
+    - name: Copy server.js
+      copy:
+        src: ../app/server.js
+        dest: /home/ubuntu/campusbite/app/server.js
+        owner: ubuntu
+        group: ubuntu
+        mode: "0644"
+
+    - name: Copy package.json
+      copy:
+        src: ../app/package.json
+        dest: /home/ubuntu/campusbite/app/package.json
+        owner: ubuntu
+        group: ubuntu
+        mode: "0644"
+
+    - name: Copy Dockerfile
+      copy:
+        src: ../app/Dockerfile
+        dest: /home/ubuntu/campusbite/app/Dockerfile
+        owner: ubuntu
+        group: ubuntu
+        mode: "0644"
+
+    - name: Copy public website files
+      copy:
+        src: ../app/public/
+        dest: /home/ubuntu/campusbite/app/public/
+        owner: ubuntu
+        group: ubuntu
+
+    - name: Build CampusBite Docker image
+      command:
+        cmd: docker build -t campusbite /home/ubuntu/campusbite/app
+
+    - name: Stop existing CampusBite container
+      command:
+        cmd: docker rm -f campusbite-container
+      ignore_errors: yes
+
+    - name: Run CampusBite container
+      command:
+        cmd: docker run -d --name campusbite-container -p 80:3000 --env-file /home/ubuntu/campusbite/app/.env campusbite
