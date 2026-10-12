@@ -1,15 +1,22 @@
+
 {
   "name": "campusbite",
-  "version": "1.0.0",
-  "description": "Smart Campus Canteen Pre-Order and Pickup Portal",
+  "version": "2.0.0",
+  "description": "Smart Campus Canteen Ordering Platform",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "test": "node --test"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "dotenv": "^17.2.2",
     "express": "^5.1.0",
-    "mongodb": "^6.20.0",
-    "dotenv": "^17.2.2"
+    "express-rate-limit": "^8.1.0",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongodb": "^6.20.0"
   }
 }
+

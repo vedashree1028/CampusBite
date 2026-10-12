@@ -1,6 +1,11 @@
 node_modules/
 .env
+*.env
 *.pem
 .terraform/
 *.tfstate
 *.tfstate.*
+*.tfvars
+*.tfvars.json
+npm-debug.log*
+.DS_Store
