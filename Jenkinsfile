@@ -52,11 +52,42 @@ pipeline {
             }
         }
 
+        stage('Prepare AWS Staging Archive') {
+            steps {
+                sh '''
+                    set -eu
+                    tar -czf campusbite-staging.tar.gz --exclude='./.env' --exclude='*.pem' --exclude='./.git' -C app .
+                    test -s campusbite-staging.tar.gz
+                    if tar -tzf campusbite-staging.tar.gz | grep -E '(^|/)(\.env|[^/]*\.pem)$'; then
+                        echo "ERROR: Archive contains a secret file."
+                        exit 1
+                    fi
+                    echo "Staging archive created without .env or PEM files."
+                '''
+            }
+        }
+
         stage('Test AWS SSH Connection') {
             steps {
                 sshagent(credentials: ['campusbite-aws-ssh']) {
                     sh '''
+                        set -eu
                         ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 ubuntu@3.7.71.108 "echo AWS SSH connection successful"
+                    '''
+                }
+            }
+        }
+
+        stage('Build AWS Candidate with Ansible') {
+            steps {
+                sshagent(credentials: ['campusbite-aws-ssh']) {
+                    sh '''
+                        set -eu
+                        export ANSIBLE_SSH_COMMON_ARGS="-o StrictHostKeyChecking=accept-new -o ConnectTimeout=10"
+                        ansible-playbook \
+                            -i ansible/inventory.ini \
+                            ansible/deploy.yml
+
                     '''
                 }
             }
@@ -65,7 +96,7 @@ pipeline {
 
     post {
         success {
-            echo 'CampusBite CI passed, Docker image built, and AWS SSH test succeeded.'
+            echo 'CampusBite CI passed and the AWS candidate build ran through Ansible.'
         }
 
         failure {

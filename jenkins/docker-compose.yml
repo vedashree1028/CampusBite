@@ -1,7 +1,9 @@
-
 services:
   jenkins:
-    image: jenkins/jenkins:lts-jdk21
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: campusbite-jenkins-custom:latest
     container_name: campusbite-jenkins
     restart: unless-stopped
     privileged: true

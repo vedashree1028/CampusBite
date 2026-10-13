@@ -1,89 +1,68 @@
 ---
-- name: Deploy CampusBite Application
+- name: Build CampusBite candidate image safely
   hosts: web
-  become: yes
+  become: true
+  gather_facts: false
 
-  vars_prompt:
-    - name: mongodb_uri
-      prompt: "Enter your MongoDB Atlas connection URI"
-      private: yes
+  vars:
+    staging_dir: /home/ubuntu/campusbite-staging
+    upload_dir: /home/ubuntu/campusbite-staging-upload
+    archive_name: campusbite-staging.tar.gz
+    candidate_image: campusbite:candidate
 
   tasks:
-
-    - name: Update package list
-      apt:
-        update_cache: yes
-
-    - name: Install Docker
-      apt:
-        name: docker.io
-        state: present
-
-    - name: Start Docker service
-      service:
-        name: docker
-        state: started
-        enabled: yes
-
-    - name: Create CampusBite application directory
-      file:
-        path: /home/ubuntu/campusbite/app
+    - name: Create AWS staging directories
+      ansible.builtin.file:
+        path: "{{ item }}"
         state: directory
         owner: ubuntu
         group: ubuntu
         mode: "0755"
+      loop:
+        - "{{ staging_dir }}"
+        - "{{ upload_dir }}"
 
-    - name: Create application environment file
-      copy:
-        content: |
-          MONGODB_URI={{ mongodb_uri }}
-          PORT=3000
-        dest: /home/ubuntu/campusbite/app/.env
+    - name: Upload source archive to AWS
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../{{ archive_name }}"
+        dest: "{{ upload_dir }}/{{ archive_name }}"
         owner: ubuntu
         group: ubuntu
         mode: "0600"
-      no_log: true
 
-    - name: Copy server.js
-      copy:
-        src: ../app/server.js
-        dest: /home/ubuntu/campusbite/app/server.js
-        owner: ubuntu
-        group: ubuntu
-        mode: "0644"
+    - name: Extract source archive into staging
+      ansible.builtin.unarchive:
+        src: "{{ upload_dir }}/{{ archive_name }}"
+        dest: "{{ staging_dir }}"
+        remote_src: true
 
-    - name: Copy package.json
-      copy:
-        src: ../app/package.json
-        dest: /home/ubuntu/campusbite/app/package.json
-        owner: ubuntu
-        group: ubuntu
-        mode: "0644"
+    - name: Check staging Dockerfile
+      ansible.builtin.stat:
+        path: "{{ staging_dir }}/Dockerfile"
+      register: dockerfile_check
 
-    - name: Copy Dockerfile
-      copy:
-        src: ../app/Dockerfile
-        dest: /home/ubuntu/campusbite/app/Dockerfile
-        owner: ubuntu
-        group: ubuntu
-        mode: "0644"
+    - name: Check staging server file
+      ansible.builtin.stat:
+        path: "{{ staging_dir }}/server.js"
+      register: server_check
 
-    - name: Copy public website files
-      copy:
-        src: ../app/public/
-        dest: /home/ubuntu/campusbite/app/public/
-        owner: ubuntu
-        group: ubuntu
+    - name: Require candidate build inputs
+      ansible.builtin.assert:
+        that:
+          - dockerfile_check.stat.exists
+          - server_check.stat.exists
+        fail_msg: "Required staging files are missing. Live application was not changed."
 
-    - name: Build CampusBite Docker image
-      command:
-        cmd: docker build -t campusbite /home/ubuntu/campusbite/app
+    - name: Build candidate Docker image from staging
+      ansible.builtin.command:
+        cmd: docker build -t "{{ candidate_image }}" "{{ staging_dir }}"
+      changed_when: true
 
-    - name: Stop existing CampusBite container
-      command:
-        cmd: docker rm -f campusbite-container
-      ignore_errors: yes
+    - name: Verify candidate image exists
+      ansible.builtin.command:
+        cmd: docker image inspect "{{ candidate_image }}"
+      changed_when: false
 
-    - name: Run CampusBite container
-      command:
-        cmd: docker run -d --name campusbite-container -p 80:3000 --env-file /home/ubuntu/campusbite/app/.env campusbite
+    - name: Report candidate build result
+      ansible.builtin.debug:
+        msg: "Candidate image verified. The live container and production environment were not changed."
