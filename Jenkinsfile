@@ -58,7 +58,7 @@ pipeline {
                     set -eu
                     tar -czf campusbite-staging.tar.gz --exclude='./.env' --exclude='*.pem' --exclude='./.git' -C app .
                     test -s campusbite-staging.tar.gz
-                    if tar -tzf campusbite-staging.tar.gz | grep -E '(^|/)(\.env|[^/]*\.pem)$'; then
+                    if tar -tzf campusbite-staging.tar.gz | grep -E '(^|/)([.]env|[^/]*[.]pem)$'; then
                         echo "ERROR: Archive contains a secret file."
                         exit 1
                     fi
