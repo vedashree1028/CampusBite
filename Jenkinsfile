@@ -1,4 +1,3 @@
-
 pipeline {
     agent any
 
@@ -52,11 +51,21 @@ pipeline {
                 sh 'docker build -t campusbite:${BUILD_NUMBER} ./app'
             }
         }
+
+        stage('Test AWS SSH Connection') {
+            steps {
+                sshagent(credentials: ['campusbite-aws-ssh']) {
+                    sh '''
+                        ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 ubuntu@3.7.71.108 "echo AWS SSH connection successful"
+                    '''
+                }
+            }
+        }
     }
 
     post {
         success {
-            echo 'CampusBite tests passed and Docker image built successfully.'
+            echo 'CampusBite CI passed, Docker image built, and AWS SSH test succeeded.'
         }
 
         failure {
@@ -68,4 +77,3 @@ pipeline {
         }
     }
 }
-
