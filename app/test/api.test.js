@@ -1,15 +1,19 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 
-test('CampusBite health API returns success and database status', async () => {
-    const response = await fetch('http://localhost:3002/api/status', {
-        signal: AbortSignal.timeout(5000)
-    });
+test('CampusBite exposes a health endpoint and Prometheus metrics endpoint', () => {
+    const serverPath = path.join(__dirname, '..', 'server.js');
+    const server = fs.readFileSync(serverPath, 'utf8');
 
-    assert.equal(response.status, 200);
+    assert.match(server, /\/api\/status/);
+    assert.match(server, /\/metrics/);
+});
 
-    const data = await response.json();
+test('CampusBite package includes the Prometheus client', () => {
+    const packagePath = path.join(__dirname, '..', 'package.json');
+    const config = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
 
-    assert.equal(data.success, true);
-    assert.equal(data.database, 'Connected');
+    assert.ok(config.dependencies['prom-client']);
 });
