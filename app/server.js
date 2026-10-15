@@ -1,4 +1,4 @@
-const express = require("express");
+﻿const express = require("express");
 const path = require("path");
 const { MongoClient, ObjectId } = require("mongodb");
 const bcrypt = require("bcryptjs");
@@ -38,14 +38,14 @@ const client = new MongoClient(process.env.MONGODB_URI);
 let db;
 
 const menu = [
-    { id: "CB01", name: "Classic Veg Burger", category: "Burgers", price: 70, emoji: "🍔", description: "Crispy patty with fresh vegetables" },
-    { id: "CB02", name: "Paneer Wrap", category: "Wraps", price: 90, emoji: "🌯", description: "Spiced paneer wrapped in a soft tortilla" },
-    { id: "CB03", name: "Masala Dosa", category: "South Indian", price: 80, emoji: "🥞", description: "Golden dosa served with chutney" },
-    { id: "CB04", name: "Veg Sandwich", category: "Sandwiches", price: 60, emoji: "🥪", description: "Toasted sandwich with fresh vegetables" },
-    { id: "CB05", name: "French Fries", category: "Snacks", price: 50, emoji: "🍟", description: "Golden, crispy potato fries" },
-    { id: "CB06", name: "Cold Coffee", category: "Drinks", price: 65, emoji: "🥤", description: "Chilled coffee with creamy milk" },
-    { id: "CB07", name: "Veg Hakka Noodles", category: "Meals", price: 100, emoji: "🍜", description: "Stir-fried noodles with vegetables" },
-    { id: "CB08", name: "Fresh Fruit Bowl", category: "Healthy", price: 75, emoji: "🍓", description: "Seasonal fresh fruit selection" }
+    { id: "CB01", name: "Classic Veg Burger", category: "Burgers", price: 70, image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=900&q=85", emoji: "\u{1F354}", description: "Crispy patty with fresh vegetables" },
+    { id: "CB02", name: "Paneer Wrap", category: "Wraps", price: 90, image: "https://images.unsplash.com/photo-1626700051175-6818013e1d4f?auto=format&fit=crop&w=900&q=85", emoji: "\u{1F32F}", description: "Spiced paneer wrapped in a soft tortilla" },
+    { id: "CB03", name: "Masala Dosa", category: "South Indian", price: 80, image: "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=900&q=85", emoji: "\u{1F95E}", description: "Golden dosa served with chutney" },
+    { id: "CB04", name: "Veg Sandwich", category: "Sandwiches", price: 60, image: "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=900&q=85", emoji: "\u{1F96A}", description: "Toasted sandwich with fresh vegetables" },
+    { id: "CB05", name: "French Fries", category: "Snacks", price: 50, image: "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=900&q=85", emoji: "\u{1F35F}", description: "Golden, crispy potato fries" },
+    { id: "CB06", name: "Cold Coffee", category: "Drinks", price: 65, image: "https://images.unsplash.com/photo-1461023058943-07fcbe16d735?auto=format&fit=crop&w=900&q=85", emoji: "\u{1F964}", description: "Chilled coffee with creamy milk" },
+    { id: "CB07", name: "Veg Hakka Noodles", category: "Meals", price: 100, image: "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?auto=format&fit=crop&w=900&q=85", emoji: "\u{1F35C}", description: "Stir-fried noodles with vegetables" },
+    { id: "CB08", name: "Fresh Fruit Bowl", category: "Healthy", price: 75, image: "https://images.unsplash.com/photo-1490474418585-ba9bad8fd0ea?auto=format&fit=crop&w=900&q=85", emoji: "\u{1F34C}", description: "Seasonal fresh fruit selection" }
 ];
 
 const orderStatuses = [
@@ -58,7 +58,13 @@ const orderStatuses = [
 ];
 
 app.disable("x-powered-by");
-app.use(helmet());
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            imgSrc: ["'self'", "data:", "https://images.unsplash.com"]
+        }
+    }
+}));
 app.use(express.json({ limit: "100kb" }));
 app.use(express.urlencoded({ extended: false }));
 
@@ -188,7 +194,7 @@ app.post("/api/auth/register", async (req, res) => {
         if (name.length < 2 || name.length > 80) {
             return res.status(400).json({
                 success: false,
-                message: "Name must contain 2–80 characters."
+                message: "Name must contain 2-80 characters."
             });
         }
 
@@ -204,7 +210,7 @@ app.post("/api/auth/register", async (req, res) => {
             password.length > 72) {
             return res.status(400).json({
                 success: false,
-                message: "Password must contain 10–72 characters."
+                message: "Password must contain 10-72 characters."
             });
         }
 
@@ -578,6 +584,47 @@ app.patch("/api/admin/orders/:id", authenticate, requireAdmin, async (req, res) 
 });
 
 // Admin: request payment for an accepted order
+ // Admin: update the pickup slot without changing the order status.
+app.patch("/api/admin/orders/:id/pickup", authenticate, requireAdmin, async (req, res) => {
+    try {
+        if (!ObjectId.isValid(req.params.id)) {
+            return res.status(400).json({ success: false, message: "Invalid order ID." });
+        }
+
+        const pickupSlot = String(req.body.pickupSlot || "");
+        const allowedSlots = [
+            "12:00-12:15",
+            "12:15-12:30",
+            "12:30-12:45",
+            "12:45-13:00",
+            "13:00-13:15"
+        ];
+
+        if (!allowedSlots.includes(pickupSlot)) {
+            return res.status(400).json({ success: false, message: "Choose a valid pickup slot." });
+        }
+
+        const result = await db.collection("orders").updateOne(
+            {
+                _id: new ObjectId(req.params.id),
+                status: { $in: ["Accepted", "Preparing", "Ready"] }
+            },
+            { $set: { pickupSlot, updatedAt: new Date() } }
+        );
+
+        if (!result.matchedCount) {
+            return res.status(409).json({
+                success: false,
+                message: "Pickup time can only be updated for accepted, preparing, or ready orders."
+            });
+        }
+
+        res.json({ success: true, message: "Pickup slot updated." });
+    } catch (error) {
+        console.error("Pickup slot update error:", error.message);
+        res.status(500).json({ success: false, message: "Unable to update pickup slot." });
+    }
+});
 app.post("/api/admin/orders/:id/payment-request", authenticate, requireAdmin, async (req, res) => {
     try {
         if (!ObjectId.isValid(req.params.id)) {
@@ -728,37 +775,56 @@ async function startServer() {
     await db.collection("orders").createIndex({ userId: 1, createdAt: -1 });
     await db.collection("orders").createIndex({ status: 1, createdAt: -1 });
 
-    // Create or promote the administrator using environment variables.
-    const adminEmail = String(process.env.ADMIN_EMAIL || "").trim().toLowerCase();
-    const adminPassword = process.env.ADMIN_PASSWORD || "";
-
-    if (adminEmail && adminPassword) {
-        if (!validEmail(adminEmail) || adminPassword.length < 12 || adminPassword.length > 72) {
-            throw new Error("ADMIN_EMAIL must be valid and ADMIN_PASSWORD must be 12–72 characters.");
+    // Configure owner and manager admin accounts from environment variables.
+    const admins = [
+        {
+            name: "CampusBite Owner",
+            email: String(process.env.ADMIN_EMAIL || "").trim().toLowerCase(),
+            password: process.env.ADMIN_PASSWORD || ""
+        },
+        {
+            name: "CampusBite Manager",
+            email: String(process.env.MANAGER_ADMIN_EMAIL || "").trim().toLowerCase(),
+            password: process.env.MANAGER_ADMIN_PASSWORD || ""
         }
+    ];
 
+    if (admins.some(admin => !admin.email || !admin.password)) {
+        throw new Error(
+            "Both admin accounts are required. Configure ADMIN_EMAIL, ADMIN_PASSWORD, MANAGER_ADMIN_EMAIL, and MANAGER_ADMIN_PASSWORD."
+        );
+    }
+
+    for (const admin of admins) {
+        if (!validEmail(admin.email) || admin.password.length < 12 || admin.password.length > 72) {
+            throw new Error("Each admin needs a valid email and a password between 12 and 72 characters.");
+        }
+    }
+
+    if (new Set(admins.map(admin => admin.email)).size !== admins.length) {
+        throw new Error("Owner and manager admin emails must be different.");
+    }
+
+    for (const admin of admins) {
         await db.collection("users").updateOne(
-            { email: adminEmail },
+            { email: admin.email },
             {
                 $set: {
-                    name: "CampusBite Administrator",
+                    name: admin.name,
                     role: "admin",
-                    passwordHash: await bcrypt.hash(adminPassword, 12)
+                    passwordHash: await bcrypt.hash(admin.password, 12)
                 },
                 $setOnInsert: {
-                    email: adminEmail,
+                    email: admin.email,
                     studentId: "",
                     createdAt: new Date()
                 }
             },
             { upsert: true }
         );
-
-        console.log("Administrator account configured.");
-    } else {
-        console.warn("ADMIN_EMAIL/ADMIN_PASSWORD are not configured; admin account not seeded.");
     }
 
+    console.log("Owner and manager admin accounts configured.");
     app.listen(PORT, "0.0.0.0", () => {
         console.log(`CampusBite running on port ${PORT}`);
         console.log("MongoDB Atlas connected.");

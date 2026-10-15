@@ -100,7 +100,10 @@ function renderMenu(items, container = "#menu-grid") {
 
     grid.innerHTML = items.map(item => `
         <article class="food-card">
-            <div class="food-emoji">${escapeHTML(item.emoji)}</div>
+            <div class="food-image-wrap">
+              <img class="food-image" src="${escapeHTML(item.image || "")}" alt="${escapeHTML(item.name)}" loading="lazy">
+              <span class="food-image-fallback" aria-hidden="true">${escapeHTML(item.emoji || "🍽️")}</span>
+            </div>
             <div class="food-card-body">
                 <span class="food-category">${escapeHTML(item.category)}</span>
                 <h3>${escapeHTML(item.name)}</h3>
@@ -113,6 +116,13 @@ function renderMenu(items, container = "#menu-grid") {
             </div>
         </article>
     `).join("");
+
+    grid.querySelectorAll(".food-image").forEach(image => {
+        image.addEventListener("error", () => {
+            image.closest(".food-image-wrap")?.classList.add("image-fallback");
+            image.remove();
+        }, { once: true });
+    });
 }
 
 async function loadMenu() {
@@ -194,9 +204,10 @@ function orderCard(order, admin = false) {
         ${admin ? `<p>${escapeHTML(order.customerEmail || "")}</p>` : ""}
         <p>${itemList}</p>
         <p><strong>Total: ${money(order.totalAmount)}</strong></p>
-        <p>Pickup: ${escapeHTML(order.pickupSlot || order.pickupPreference || "Awaiting assignment")}</p>
-        <p>Payment: ${statusBadge(order.payment?.status || "NotRequested")}</p>
-        <small>${order.createdAt ? new Date(order.createdAt).toLocaleString() : ""}</small>
+        <p><strong>Pickup:</strong> ${escapeHTML(order.pickupSlot || order.pickupPreference || "Awaiting assignment")}</p>
+        ${order.status === "Rejected" && order.rejectionReason ? `<p class="order-rejection"><strong>Reason:</strong> ${escapeHTML(order.rejectionReason)}</p>` : ""}
+        <p><strong>Payment:</strong> ${statusBadge(order.payment?.status || "NotRequested")}</p>
+        <small>Placed ${order.createdAt ? new Date(order.createdAt).toLocaleString() : ""}</small>
         ${admin ? adminOrderControls(order) : customerOrderControls(order)}
       </article>
     `;
@@ -238,6 +249,20 @@ function adminOrderControls(order) {
         ${["Accepted", "Preparing"].includes(order.status) ? `
           <button class="btn btn-primary prepare-order" data-id="${id}">Mark preparing</button>
           <button class="btn btn-primary ready-order" data-id="${id}">Mark ready</button>
+        ` : ""}
+
+        ${["Accepted", "Preparing", "Ready"].includes(order.status) ? `
+          <div class="pickup-update">
+            <label for="pickup-update-${id}">Update pickup slot</label>
+            <select id="pickup-update-${id}" aria-label="Update pickup slot">
+              <option value="12:00-12:15" ${order.pickupSlot === "12:00-12:15" ? "selected" : ""}>12:00–12:15</option>
+              <option value="12:15-12:30" ${order.pickupSlot === "12:15-12:30" ? "selected" : ""}>12:15–12:30</option>
+              <option value="12:30-12:45" ${order.pickupSlot === "12:30-12:45" ? "selected" : ""}>12:30–12:45</option>
+              <option value="12:45-13:00" ${order.pickupSlot === "12:45-13:00" ? "selected" : ""}>12:45–13:00</option>
+              <option value="13:00-13:15" ${order.pickupSlot === "13:00-13:15" ? "selected" : ""}>13:00–13:15</option>
+            </select>
+            <button class="btn btn-outline update-pickup" data-id="${id}">Save pickup time</button>
+          </div>
         ` : ""}
 
         ${order.status === "Accepted" && order.payment?.status === "NotRequested" ||
@@ -473,6 +498,12 @@ $("#admin-orders").addEventListener("click", async event => {
                 method: "PATCH",
                 body: JSON.stringify({ status: "Rejected", reason })
             });
+        } else if (classes.contains("update-pickup")) {
+            const pickupSlot = $(`#pickup-update-${CSS.escape(id)}`).value;
+            data = await api(`/admin/orders/${id}/pickup`, {
+                method: "PATCH",
+                body: JSON.stringify({ pickupSlot })
+            });
         } else if (classes.contains("prepare-order")) {
             data = await api(`/admin/orders/${id}`, {
                 method: "PATCH",
@@ -566,3 +597,33 @@ async function init() {
 }
 
 init();
+
+const refreshAdminButton = $("#refresh-admin");
+if (refreshAdminButton) {
+    refreshAdminButton.addEventListener("click", async () => {
+        refreshAdminButton.disabled = true;
+        try {
+            await loadAdminOrders();
+            notify("Orders refreshed.");
+        } catch (error) {
+            notify(error.message);
+        } finally {
+            refreshAdminButton.disabled = false;
+        }
+    });
+}
+
+const refreshCustomerButton = $("#refresh-customer-orders");
+if (refreshCustomerButton) {
+    refreshCustomerButton.addEventListener("click", async () => {
+        refreshCustomerButton.disabled = true;
+        try {
+            await loadHistory();
+            notify("Order history refreshed.");
+        } catch (error) {
+            notify(error.message);
+        } finally {
+            refreshCustomerButton.disabled = false;
+        }
+    });
+}

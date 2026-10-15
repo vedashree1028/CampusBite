@@ -32,6 +32,7 @@
     <div class="nav-actions">
       <div id="auth-links">
         <button class="btn btn-outline" data-page="login">Log in</button>
+        <button class="btn btn-outline" data-page="login" id="admin-login-shortcut">Admin login</button>
         <button class="btn btn-primary" data-page="register">Join CampusBite</button>
       </div>
       <div id="account-links" hidden>
@@ -60,7 +61,7 @@
         </div>
       </div>
       <div class="hero-visual">
-        <img src="https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=1100&q=85" alt="Freshly prepared burger and fries">
+        <img src="/images/hero-burger.jpg" alt="Freshly prepared burger and fries">
         <div class="floating-card">
           <span class="floating-icon">✦</span>
           <div><strong>Your break, upgraded.</strong><small>More time for what matters.</small></div>
@@ -126,6 +127,7 @@
         <span class="eyebrow">WELCOME BACK</span>
         <h2>Good to see you.</h2>
         <p>Log in to order food or manage the canteen.</p>
+        <div class="notice admin-login-note"><strong>For canteen owner or manager?</strong><br>Use your configured admin email and password here. Admin accounts open the Order Management dashboard automatically after login.</div>
         <label for="login-email">Email address</label>
         <input id="login-email" name="email" type="email" required autocomplete="username" placeholder="you@example.com">
         <label for="login-password">Password</label>
@@ -139,7 +141,7 @@
       <div class="section-heading"><div><span class="eyebrow">YOUR CAMPUS ACCOUNT</span><h2>Your food, your way.</h2><p>Track orders and discover your next favourite.</p></div><button class="btn btn-primary" data-page="menu">Order food +</button></div>
       <div class="dashboard-grid">
         <section class="panel"><h3>Picked for you</h3><p id="recommendation-note" class="muted"></p><div id="recommendation-grid" class="food-grid compact-grid"></div></section>
-        <section class="panel"><h3>Your order history</h3><p class="muted">Follow each order from approval to pickup.</p><div id="history-list" class="stack-list"></div></section>
+        <section class="panel"><div class="panel-heading-row"><div><h3>Your order history</h3><p class="muted">Follow each order from approval to pickup.</p></div><button class="btn btn-outline btn-small" id="refresh-customer-orders" type="button">Refresh</button></div><div id="history-list" class="stack-list"></div></section>
       </div>
     </section>
 
@@ -160,8 +162,8 @@
     </section>
 
     <section class="page-section section-wrap" id="admin-dashboard" hidden>
-      <div class="section-heading"><div><span class="eyebrow">CANTEEN CONTROL CENTRE</span><h2>Order management.</h2><p>Review incoming orders and manage the pickup and payment workflow.</p></div><button class="btn btn-outline" id="refresh-admin" onclick="location.reload()">Refresh page</button></div>
-      <div class="notice">Verify payment records against your actual payment or cash collection process before marking them verified.</div>
+      <div class="section-heading"><div><span class="eyebrow">CANTEEN CONTROL CENTRE</span><h2>Order management.</h2><p>Review incoming orders and manage the pickup and payment workflow.</p></div><button class="btn btn-outline" id="refresh-admin" type="button">Refresh orders</button></div>
+      <div class="notice">Both the owner and manager admin accounts use this dashboard. Verify payment records against your actual payment or cash collection process before marking them verified.</div>
       <div id="admin-orders" class="stack-list"></div>
     </section>
   </main>
